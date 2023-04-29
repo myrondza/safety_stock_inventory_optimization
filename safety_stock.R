@@ -67,7 +67,7 @@ demand_avg <- mean(train_df$V1)
 demand_summary <- data.frame(demand_min,demand_max,demand_sd,demand_avg)
 
 
-############################## GET SAFETY STOCK ############################
+############################## GET SAFETY STOCK (NORMAL DISTRIBUTION ASSUMPTION) ############################
 
 service_level= 0.95
 
@@ -83,7 +83,7 @@ calculate_z_score <- function(service_level) {
 }
 
 calculate_safety_stock <- function(method,z_score,demand_summary,lead_time_summary) {
-
+  
   ############################### Average - Max Method ###############################
   if (method == 1) 
   {ss <- ((lead_time_summary$lead_time_max * demand_summary$demand_max)-(lead_time_summary$lead_time_avg * demand_summary$demand_avg))
@@ -102,7 +102,7 @@ calculate_safety_stock <- function(method,z_score,demand_summary,lead_time_summa
   ############################### King's Method ###############################
   else if (method == 4) 
   {ss <- (z_score * (sqrt(lead_time_summary$lead_time_avg*(demand_summary$demand_sd)**2 +
-            ((demand_summary$demand_avg)**2 * (lead_time_summary$lead_time_sd**2)))))
+                            ((demand_summary$demand_avg)**2 * (lead_time_summary$lead_time_sd**2)))))
   return(ss)}
   
   ############################### Alternative Method ###############################
@@ -123,16 +123,16 @@ safetystock_summary_op <- data.frame()
 
 for (i in 1:5){
   
-safety_stock = calculate_safety_stock(i,z_score,demand_summary,lead_time_summary)
-rop = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
-
-min_level = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
-max_level = rop + demand_summary$demand_max
-
-safetystock_summary <- data.frame(lead_time_summary,demand_summary,z_score,safety_stock,rop,min_level,max_level)
-
-safetystock_summary$method = i
-safetystock_summary_op <- rbind(safetystock_summary_op,safetystock_summary)
+  safety_stock = calculate_safety_stock(i,z_score,demand_summary,lead_time_summary)
+  rop = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+  
+  min_level = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+  max_level = rop + demand_summary$demand_max
+  
+  safetystock_summary <- data.frame(lead_time_summary,demand_summary,z_score,safety_stock,rop,min_level,max_level)
+  
+  safetystock_summary$method = i
+  safetystock_summary_op <- rbind(safetystock_summary_op,safetystock_summary)
 }
 
 
@@ -140,3 +140,64 @@ safetystock_summary_op
 
 
 
+############################## GET SAFETY STOCK (NON-NORMAL DISTRIBUTION ASSUMPTION - NON PARAMETRIC) ############################
+
+library(dplyr)
+library(ggplot2) 
+library(KernSmooth) 
+
+
+############################### KDE Method ###############################
+
+ggplot(train_df, aes(x = V1)) + 
+  geom_histogram(binwidth = 10, fill = "steelblue", color = "blue") + 
+  labs(x = "Demand", y = "Frequency", title = "Histogram of Demand")
+
+density_est <- density(train_df$V1)
+
+kde_est <- bkde(train_df$V1 ,kernel = "epanech",gridsize = 512)
+
+
+ggplot(data.frame(x = density_est$x, y = density_est$y, z = kde_est$y), aes(x = x)) + 
+  geom_line(aes(y = y), color = "steelblue") +
+  geom_line(aes(y = z), color = "red") +
+  labs(x = "Demand", y = "Density", title = "PDF and KDE of Demand")
+
+qt<-quantile(kde_est$x,0.95)
+
+safety_stock <- qt
+
+rop = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+
+min_level = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+max_level = rop + demand_summary$demand_max
+
+safetystock_summary_kde <- data.frame(lead_time_summary,demand_summary,z_score,safety_stock,rop,min_level,max_level)
+
+############################## GET SAFETY STOCK (NON-NORMAL DISTRIBUTION ASSUMPTION - PARAMETRIC) ############################
+
+
+############################### GARCH Method ###############################
+
+library(rugarch)
+
+fit <- auto.arima(train_df$V1)
+order <- arimaorder(fit)
+
+spec <- ugarchspec(variance.model = list(model = "sGARCH", 
+                   garchOrder = c(1, 1)),
+                   mean.model = list(c(order[1],order[3])))
+
+fit <- ugarchfit(spec, data = train_df$V1, solver.control = list(trace = 0))
+forecast <- ugarchforecast(fit, n.ahead = 1)
+
+qt<-quantile(forecast,0.95)
+
+safety_stock <- qt[1]
+
+rop = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+
+min_level = safety_stock + (demand_summary$demand_avg * lead_time_summary$lead_time_avg)
+max_level = rop + demand_summary$demand_max
+
+safetystock_summary_garch <- data.frame(lead_time_summary,demand_summary,z_score,safety_stock,rop,min_level,max_level)
