@@ -1,3 +1,5 @@
+# Empirical Safety Stock Estimation for Inventory Optimization.
+
 Managing a supply chain involves making decisions under imperfect or unknown information. Uncertainty in the supply chain can arise from various sources, including demand uncertainty, supply uncertainty, and production uncertainty. Addressing these challenges requires finding the right balance between service level, stock holding, and safety stock.
 
 Demand uncertainty refers to the risk of customers not buying products as forecasted. This can be due to factors such as changing consumer preferences, unexpected events, and economic conditions. When demand is uncertain, companies need to hold safety stock to buffer against unexpected fluctuations.
