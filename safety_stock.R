@@ -177,7 +177,7 @@ safetystock_summary_kde <- data.frame(lead_time_summary,demand_summary,z_score,s
 ############################## GET SAFETY STOCK (NON-NORMAL DISTRIBUTION ASSUMPTION - PARAMETRIC) ############################
 
 
-############################### GARCH Method ###############################
+############################### GARCH Method (WIP) ###############################
 
 library(rugarch)
 
